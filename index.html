@@ -151,6 +151,19 @@ h2{font-size:14px;font-weight:700;color:#111;margin:1.5rem 0 .6rem}
 .brand-divider{width:40px;height:3px;background:#185FA5;border-radius:99px;margin:12px auto}
 /* 비밀번호 강도 */
 .pw-info{font-size:12px;color:#888;margin-top:4px}
+
+/* 사진 전체화면 뷰어 */
+.iv-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.93);z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem;cursor:pointer}
+.iv-top{width:100%;max-width:660px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.iv-name{color:#fff;font-size:14px;font-weight:600}
+.iv-meta{color:rgba(255,255,255,.65);font-size:12px;margin-top:2px}
+.iv-close{background:rgba(255,255,255,.15);border:none;color:#fff;width:34px;height:34px;border-radius:50%;font-size:18px;cursor:pointer;line-height:1}
+.iv-img{max-width:100%;max-height:72vh;object-fit:contain;border-radius:10px;cursor:default}
+.iv-date{color:#FAC775;font-size:13px;font-weight:600;margin-top:10px}
+.iv-nav{display:flex;gap:12px;margin-top:10px}
+.iv-nav button{background:rgba(255,255,255,.18);border:none;color:#fff;padding:7px 22px;border-radius:99px;font-size:13px;cursor:pointer;font-family:inherit}
+.iv-nav button:hover{background:rgba(255,255,255,.32)}
+.iv-counter{color:rgba(255,255,255,.55);font-size:12px;margin-top:6px}
 </style>
 </head>
 <body>
@@ -190,12 +203,22 @@ function autoHyphen(input) {
 window.addEventListener('load', function() {
   try {
     sb = window.supabase.createClient(SUPA_URL, SUPA_KEY);
-    loadAdminCredentials().then(function() { pageLogin(); });
+    pageLogin(); // 먼저 화면 표시
+    loadAdminCredentials(); // 백그라운드에서 계정 로드
   } catch(e) {
     document.getElementById('root').innerHTML =
       '<div style="padding:1rem;color:#A32D2D;font-size:14px"><strong>초기화 오류:</strong><br>' + e.message + '</div>';
   }
 });
+
+async function getSettings() {
+  if (_cachedSettings) return _cachedSettings;
+  var res = await sb.from('settings').select('*');
+  var s = {};
+  (res.data || []).forEach(function(r) { s[r.key] = r.value; });
+  _cachedSettings = s;
+  return s;
+}
 
 async function loadAdminCredentials() {
   try {
@@ -437,11 +460,12 @@ async function saveGoal() {
 /* ━━ 대시보드 ━━ */
 async function pageDash() {
   loading('학습 현황 불러오는 중...');
-  var res = await sb.from('activities').select('*').eq('user_phone', sess.user.phone).order('activity_date', { ascending: false });
-  var list = res.data || [];
-  var setRes = await sb.from('settings').select('*');
-  var settings = {};
-  (setRes.data || []).forEach(function(r) { settings[r.key] = r.value; });
+  var results = await Promise.all([
+    sb.from('activities').select('id,user_name,user_phone,activity_date,seq,text,status,date_confirmed,rejection_reason').eq('user_phone', sess.user.phone).order('activity_date', { ascending: false }),
+    getSettings()
+  ]);
+  var list = results[0].data || [];
+  var settings = results[1];
   var reqCount = parseInt(settings['required_count'] || '10');
   globalReqCount = reqCount;
   var periodStart = settings['period_start'] ? new Date(settings['period_start']) : new Date();
@@ -512,18 +536,20 @@ async function pageDash() {
     '<button class="btn btn-p" style="margin-top:1rem" onclick="pageActivity()">오늘 인증하기</button>' +
     '<h2>인증 기록</h2><div class="card">' + itemsHtml + '</div>'
   );
+  setTimeout(function() { autoLoadDashPhotos(list, 0); }, 100);
 }
 
 /* ━━ 활동 인증 ━━ */
 async function pageActivity() {
   loading();
-  var res = await sb.from('activities').select('activity_date', { count: 'exact' }).eq('user_phone', sess.user.phone);
-  var marked = (res.data || []).map(function(r) { return r.activity_date; });
+  var actResults = await Promise.all([
+    sb.from('activities').select('activity_date', { count: 'exact' }).eq('user_phone', sess.user.phone),
+    getSettings()
+  ]);
+  var marked = (actResults[0].data || []).map(function(r) { return r.activity_date; });
   globalMarked = marked;
-  var currentCount = res.count || 0;
-  var setRes = await sb.from('settings').select('*');
-  var settings = {};
-  (setRes.data || []).forEach(function(r) { settings[r.key] = r.value; });
+  var currentCount = actResults[0].count || 0;
+  var settings = actResults[1];
   var reqCount = parseInt(settings['required_count'] || '10');
   globalReqCount = reqCount;
   globalPeriodStart = settings['period_start'] ? settings['period_start'].split('T')[0] : '';
@@ -680,11 +706,13 @@ async function submitActivity() {
 async function pageAdmin(filter) {
   filter = filter || 'all';
   loading('인증 목록 불러오는 중...');
-  var setRes = await sb.from('settings').select('*');
-  var settings = {};
-  (setRes.data || []).forEach(function(r) { settings[r.key] = r.value; });
+  var results = await Promise.all([
+    sb.from('activities').select('id,user_name,user_phone,activity_date,seq,text,status,date_confirmed,rejection_reason,created_at').order('created_at', { ascending: false }),
+    getSettings()
+  ]);
+  var res = results[0];
+  var settings = results[1];
   var reqCount = parseInt(settings['required_count'] || '10');
-  var res = await sb.from('activities').select('id,user_name,user_phone,activity_date,seq,text,status,date_confirmed,rejection_reason,created_at').order('created_at', { ascending: false });
   var acts = res.data || [];
   var cntAll=acts.length, cntPending=0, cntApproved=0;
   for (var i=0;i<acts.length;i++) {
@@ -807,7 +835,7 @@ async function saveSettings() {
   for (var i=0;i<updates.length;i++) {
     await sb.from('settings').upsert({ key:updates[i].key, value:updates[i].value, updated_at:new Date().toISOString() }, { onConflict:'key' });
   }
-  toast('✅ 설정이 저장되었습니다!'); pageAdmin('all');
+  _cachedSettings = null; toast('✅ 설정이 저장되었습니다!'); pageAdmin('all');
 }
 
 /* ━━ 학습자 현황 ━━ */
@@ -1023,13 +1051,85 @@ function dlSampleExcel() {
 
 /* ━━ 사진 뷰어 ━━ */
 
+
+/* ━━ 사진 뷰어 ━━ */
+var _vImgs = [], _vIdx = 0, _vName = '', _vDate = '';
+var _cachedSettings = null;
+
+function openViewer(imgs, idx, name, date) {
+  _vImgs = imgs; _vIdx = idx; _vName = name; _vDate = date;
+  renderViewer();
+}
+function renderViewer() {
+  var existing = document.getElementById('iv-modal');
+  if (existing) existing.remove();
+  var total = _vImgs.length;
+  var nav = total > 1 ?
+    '<div class="iv-nav">' +
+    '<button onclick="event.stopPropagation();_vIdx=(_vIdx-1+_vImgs.length)%_vImgs.length;renderViewer()">&#8249; 이전</button>' +
+    '<button onclick="event.stopPropagation();_vIdx=(_vIdx+1)%_vImgs.length;renderViewer()">다음 &#8250;</button>' +
+    '</div><div class="iv-counter">' + (_vIdx+1) + ' / ' + total + '</div>' : '';
+  var div = document.createElement('div');
+  div.id = 'iv-modal';
+  div.className = 'iv-bg';
+  div.innerHTML =
+    '<div class="iv-top">' +
+    '<div><div class="iv-name">' + _vName + '님의 활동 사진</div>' +
+    '<div class="iv-meta">사진 ' + (_vIdx+1) + '장 · ' + _vDate + '</div></div>' +
+    '<button class="iv-close" onclick="event.stopPropagation();closeViewer()">&#10005;</button></div>' +
+    '<img class="iv-img" src="' + _vImgs[_vIdx] + '" onclick="event.stopPropagation()" />' +
+    '<div class="iv-date">📅 ' + _vDate + ' — 날짜 확인</div>' +
+    nav;
+  div.addEventListener('click', closeViewer);
+  document.body.appendChild(div);
+}
+function closeViewer() {
+  var m = document.getElementById('iv-modal');
+  if (m) m.remove();
+}
+
+/* ━━ 사진 자동 로드 (학습자 대시보드) ━━ */
+async function autoLoadDashPhotos(list, idx) {
+  if (idx >= list.length) return;
+  var a = list[idx];
+  var ph = document.getElementById('dashphoto_' + a.id);
+  if (!ph) { autoLoadDashPhotos(list, idx+1); return; }
+  var res = await sb.from('activities').select('photo1,photo2').eq('id', a.id).single();
+  if (!res.error && res.data) {
+    var ps = [];
+    if (res.data.photo1) ps.push(res.data.photo1);
+    if (res.data.photo2) ps.push(res.data.photo2);
+    if (ps.length > 0) {
+      var div = document.createElement('div');
+      div.className = 'act-photos';
+      for (var i=0; i<ps.length; i++) {
+        (function(photos, photoIdx, actDate) {
+          var img = document.createElement('img');
+          img.className = 'act-photo';
+          img.src = photos[photoIdx];
+          img.style.cursor = 'zoom-in';
+          img.addEventListener('click', function() {
+            openViewer(photos, photoIdx, sess.user ? sess.user.name : '', actDate);
+          });
+          div.appendChild(img);
+        })(ps, i, a.activity_date);
+      }
+      ph.parentNode.replaceChild(div, ph);
+    } else {
+      ph.remove();
+    }
+  } else {
+    ph.remove();
+  }
+  autoLoadDashPhotos(list, idx+1);
+}
+
 /* ━━ 사진 자동 로드 (관리자) ━━ */
 async function autoLoadPhotos(list, idx) {
   if (idx >= list.length) return;
   var a = list[idx];
   var placeholder = document.getElementById('photo_' + a.id);
   if (!placeholder) { autoLoadPhotos(list, idx+1); return; }
-
   var res = await sb.from('activities').select('photo1,photo2').eq('id', a.id).single();
   if (!res.error && res.data) {
     var ps = [];
@@ -1040,21 +1140,30 @@ async function autoLoadPhotos(list, idx) {
       div.className = 'aphotos';
       div.style.marginBottom = '10px';
       for (var i = 0; i < ps.length; i++) {
-        var wrap = document.createElement('div');
-        wrap.className = 'aphoto';
-        wrap.innerHTML = '<img src="' + ps[i] + '"/>' +
-          '<div class="aoverlay"><div class="ad">📅 ' + a.activity_date + '</div>' +
-          '<div class="an">사진 ' + (i+1) + '</div></div>';
-        div.appendChild(wrap);
+        (function(photos, photoIdx, actDate, userName) {
+          var wrap = document.createElement('div');
+          wrap.className = 'aphoto';
+          wrap.style.cursor = 'zoom-in';
+          var img = document.createElement('img');
+          img.src = photos[photoIdx];
+          var overlay = document.createElement('div');
+          overlay.className = 'aoverlay';
+          overlay.innerHTML = '<div class="ad">📅 ' + actDate + '</div><div class="an">사진 ' + (photoIdx+1) + ' · 클릭하여 크게 보기</div>';
+          wrap.appendChild(img);
+          wrap.appendChild(overlay);
+          wrap.addEventListener('click', function() {
+            openViewer(photos, photoIdx, userName, actDate);
+          });
+          div.appendChild(wrap);
+        })(ps, i, a.activity_date, a.user_name);
       }
-      placeholder.parentNode.replaceChild(div, placeholder);
+      if (placeholder.parentNode) placeholder.parentNode.replaceChild(div, placeholder);
     } else {
-      placeholder.innerHTML = '';
+      if (placeholder.parentNode) placeholder.remove();
     }
   } else {
-    placeholder.innerHTML = '';
+    if (placeholder.parentNode) placeholder.remove();
   }
-  // 다음 사진 로드
   autoLoadPhotos(list, idx+1);
 }
 
