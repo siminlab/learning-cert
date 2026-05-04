@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>목표달성 작심10일</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#f5f5f3;min-height:100vh;display:flex;justify-content:center;padding:2rem 1rem 5rem}
+.wrap{width:100%;max-width:460px}
+h1{font-size:21px;font-weight:700;color:#111;margin-bottom:1.5rem}
+h2{font-size:14px;font-weight:700;color:#111;margin:1.5rem 0 .6rem}
+.card{background:#fff;border:1px solid #e8e8e4;border-radius:14px;padding:1rem 1.25rem;margin-bottom:.75rem}
+.field{margin-bottom:1rem}
+.field label{display:block;font-size:13px;color:#555;font-weight:500;margin-bottom:6px}
+.field input,.field textarea,.field select{width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;color:#111;font-family:inherit;outline:none;transition:border-color .15s;background:#fff}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:#185FA5}
+.field textarea{height:90px;resize:none}
+.btn{display:block;width:100%;padding:11px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:.5rem;background:#fff;border:1px solid #ddd;color:#111;font-family:inherit;transition:background .15s}
+.btn:hover{background:#f0f0ee}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-p{background:#185FA5;border-color:#185FA5;color:#fff}
+.btn-p:hover{background:#0C447C}
+.btn-red{background:#A32D2D;border-color:#A32D2D;color:#fff}
+.btn-red:hover{background:#7a2020}
+.btn-sm{font-size:12px;padding:5px 12px;width:auto;display:inline-block;margin-right:6px;border-radius:6px;cursor:pointer;border:1px solid #ddd;background:#fff;font-family:inherit}
+.btn-ok{background:#EAF3DE;border-color:#97C459;color:#3B6D11}
+.btn-ng{background:#FCEBEB;border-color:#F09595;color:#A32D2D}
+.btn-edit{background:#f0f6ff;border-color:#B5D4F4;color:#185FA5}
+.err{font-size:13px;color:#A32D2D;min-height:18px;padding:3px 0}
+.lnk{display:block;text-align:center;font-size:13px;color:#185FA5;cursor:pointer;padding:10px}
+.lnk:hover{text-decoration:underline}
+.badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:99px;font-weight:600}
+.b-pending{background:#FAEEDA;color:#854F0B}
+.b-approved{background:#EAF3DE;color:#3B6D11}
+.b-rejected{background:#FCEBEB;color:#A32D2D}
+.b-ok{background:#EAF3DE;color:#3B6D11;font-size:10px;padding:1px 6px}
+.b-no{background:#FCEBEB;color:#A32D2D;font-size:10px;padding:1px 6px}
+.tabs{display:flex;gap:6px;margin-bottom:1rem;flex-wrap:wrap}
+.tab{flex:1;padding:8px;text-align:center;border:1px solid #ddd;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:#fff;color:#888;transition:all .15s;min-width:70px}
+.tab.on{background:#185FA5;border-color:#185FA5;color:#fff}
+.pbar{background:#eee;border-radius:99px;height:8px;overflow:hidden;margin:.5rem 0 1rem}
+.pfill{height:100%;background:#1D9E75;border-radius:99px;transition:width .4s}
+.pgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:.75rem}
+.pstat{background:#f5f5f3;border-radius:10px;padding:.65rem .5rem;text-align:center}
+.pval{font-size:20px;font-weight:700;color:#111}
+.plbl{font-size:10px;color:#888;margin-top:2px}
+.sbar{display:flex;align-items:center;gap:10px;border-radius:10px;padding:10px 14px;margin-bottom:.75rem}
+.sbar.safe{background:#EAF3DE;border:1px solid #97C459}
+.sbar.normal{background:#FAEEDA;border:1px solid #FAC775}
+.sbar.danger{background:#FCEBEB;border:1px solid #F09595}
+.sbar .si{font-size:20px;flex-shrink:0}
+.sbar .st{font-size:13px;font-weight:600}
+.sbar .ss{font-size:11px;margin-top:2px}
+.sbar.safe .st{color:#3B6D11}.sbar.safe .ss{color:#639922}
+.sbar.normal .st{color:#854F0B}.sbar.normal .ss{color:#BA7517}
+.sbar.danger .st{color:#A32D2D}.sbar.danger .ss{color:#E24B4A}
+.fail{background:#A32D2D;color:#fff;border-radius:10px;padding:12px 14px;margin-bottom:.75rem;display:flex;align-items:center;gap:10px}
+/* 달력 */
+.cal-wrap{border:1px solid #ddd;border-radius:10px;overflow:hidden}
+.cal-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#185FA5;color:#fff}
+.cal-head button{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;line-height:1;padding:0 4px}
+.cal-head span{font-size:14px;font-weight:600}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);padding:4px 6px 2px}
+.cdn{text-align:center;font-size:11px;color:#999;padding:8px 0 4px;font-weight:600}
+.cdn:first-child{color:#e24b4a}.cdn:last-child{color:#185FA5}
+.cday{text-align:center;padding:7px 2px;font-size:13px;border-radius:6px;color:#333;transition:background .12s;margin:1px}
+.cday.clickable{cursor:pointer}
+.cday.clickable:hover{background:#f0f6ff}
+.cday.other{color:#ccc}
+.cday.today{font-weight:700;color:#185FA5}
+.cday.sel{background:#185FA5!important;color:#fff!important}
+.cday.has{color:#bbb;cursor:not-allowed;background:#f5f5f3}
+.cday.has::after{content:'✓';display:block;font-size:8px;color:#1D9E75;margin-top:1px}
+.cday.future{color:#ccc;cursor:not-allowed}
+.cday.sun{color:#e24b4a}.cday.sat{color:#185FA5}
+.cday.sel.sun,.cday.sel.sat{color:#fff}
+.cday.has.sun,.cday.has.sat{color:#bbb}
+.cday.future.sun,.cday.future.sat{color:#ccc}
+.cal-sel{font-size:13px;color:#185FA5;font-weight:600;padding:8px 14px;border-top:1px solid #f0f0ee;background:#f0f6ff}
+/* 사진 */
+.photo-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px}
+.slot{border:2px dashed #ddd;border-radius:10px;aspect-ratio:4/3;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;position:relative;overflow:hidden;background:#fafaf8}
+.slot:hover{border-color:#185FA5;background:#f0f6ff}
+.slot.filled{border:none;cursor:default}
+.slot img{width:100%;height:100%;object-fit:cover;display:block}
+.slot .sl{font-size:12px;color:#aaa;margin-top:6px}
+.slot .si{font-size:26px}
+.slot .rx{position:absolute;top:5px;right:5px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.dbadge{position:absolute;bottom:6px;left:6px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;pointer-events:none}
+.chk-box{display:flex;align-items:flex-start;gap:8px;background:#fffbf0;border:1px solid #FAC775;border-radius:8px;padding:10px 12px;margin-bottom:1rem}
+.chk-box input{margin-top:2px;accent-color:#185FA5;width:15px;height:15px;flex-shrink:0}
+.chk-box label{font-size:13px;color:#555;line-height:1.5;cursor:pointer}
+/* 인증 목록 */
+.act-item{border-bottom:1px solid #f0f0ee;padding:.85rem 0}
+.act-item:last-child{border-bottom:none}
+.act-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.act-date{font-size:11px;color:#aaa}
+.act-photos{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px}
+.act-photo{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px}
+.act-text{font-size:14px;color:#111;margin-bottom:6px}
+.reject-reason{background:#FFF3F3;border:1px solid #F09595;border-radius:8px;padding:8px 12px;font-size:13px;color:#A32D2D;margin-bottom:6px}
+/* 관리자 카드 */
+.acard{background:#fff;border:1px solid #e8e8e4;border-radius:14px;padding:1rem 1.25rem;margin-bottom:1rem}
+.acard-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #f0f0ee}
+.avatar{width:38px;height:38px;border-radius:50%;background:#B5D4F4;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#0C447C;flex-shrink:0}
+.ainfo{display:flex;align-items:center;gap:10px}
+.ameta{font-size:12px;color:#888;margin-top:2px}
+.aphotos{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.aphoto{position:relative;border-radius:8px;overflow:hidden;aspect-ratio:4/3}
+.aphoto img{width:100%;height:100%;object-fit:cover}
+.aoverlay{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.55));padding:6px 8px}
+.aoverlay .ad{font-size:11px;color:#fff;font-weight:600}
+.aoverlay .an{font-size:10px;color:rgba(255,255,255,.8)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center}
+.chip{font-size:11px;background:#f5f5f3;color:#555;border-radius:99px;padding:3px 10px}
+/* 로딩/토스트 */
+.loading{text-align:center;padding:3rem 1rem;color:#888;font-size:14px}
+.spin{display:inline-block;width:28px;height:28px;border:3px solid #ddd;border-top-color:#185FA5;border-radius:50%;animation:sp .7s linear infinite;margin-bottom:10px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:#111;color:#fff;font-size:13px;padding:10px 20px;border-radius:99px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+.toast.on{opacity:1}
+/* 기타 */
+.empty{font-size:14px;color:#999;text-align:center;padding:1.5rem 0}
+.sec-title{font-size:12px;color:#888;font-weight:600;margin-bottom:8px}
+.divider{border-top:1px solid #eee;margin-top:1rem;padding-top:1rem}
+.info-box{background:#f0f6ff;border:1px solid #B5D4F4;border-radius:10px;padding:12px 14px;margin-bottom:1rem;font-size:13px;color:#185FA5}
+.set-card{background:#fff;border:1px solid #e8e8e4;border-radius:14px;padding:1rem 1.25rem;margin-bottom:1rem}
+.set-card h3{font-size:14px;font-weight:700;color:#111;margin-bottom:1rem}
+/* 모달 */
+.modal-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem}
+.modal{background:#fff;border-radius:16px;padding:1.5rem;width:100%;max-width:400px}
+.modal h2{font-size:17px;font-weight:700;margin-bottom:1rem}
+/* 학습자 테이블 */
+.stbl{width:100%;border-collapse:collapse;font-size:13px}
+.stbl th{background:#f5f5f3;padding:8px 10px;border:1px solid #e8e8e4;font-weight:600;text-align:left}
+.stbl td{padding:8px 10px;border:1px solid #e8e8e4}
+/* 목표 카드 */
+.goal-card{background:linear-gradient(135deg,#185FA5,#0C447C);border-radius:14px;padding:1rem 1.25rem;margin-bottom:1rem;color:#fff}
+.goal-card .goal-label{font-size:11px;opacity:.8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.goal-card .goal-text{font-size:16px;font-weight:700;line-height:1.5}
+/* 로그인 브랜딩 */
+.brand-header{text-align:center;padding:2rem 0 1.5rem}
+.brand-sub{font-size:12px;color:#888;letter-spacing:.05em;margin-bottom:8px}
+.brand-title{font-size:22px;font-weight:800;color:#185FA5;line-height:1.3;margin-bottom:4px}
+.brand-prog{font-size:18px;font-weight:700;color:#111;margin-bottom:12px}
+.brand-org{font-size:12px;color:#aaa}
+.brand-divider{width:40px;height:3px;background:#185FA5;border-radius:99px;margin:12px auto}
+/* 비밀번호 강도 */
+.pw-info{font-size:12px;color:#888;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="root"></div>
+</div>
+<div class="toast" id="toast"></div>
+<div id="modal-area"></div>
+<script>
+var SUPA_URL = 'https://hewtydopqswmmqyadwzh.supabase.co';
+var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhld3R5ZG9wcXN3bW1xeWFkd3poIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0MTkyMTYsImV4cCI6MjA5Mjk5NTIxNn0.364YNkXH21rktY5sfIs_53IRteb4PepOPzDjhqcTPRo';
+var ADMIN_EMAIL = 'ssy@uuli.or.kr';  // 초기값 (DB에 저장된 값으로 덮어씀)
+var ADMIN_PW = 'tlalswneh9945';      // 초기값 (DB에 저장된 값으로 덮어씀)
+var sb;
+var sess = { user: null, isAdmin: false };
+var photos = [null, null];
+var calY, calM, selDate;
+var pendingStudents = [];
+var editingActivityId = null;
+var globalMarked = [];
+var globalReqCount = 10;
+var globalPeriodStart = '';
+var globalPeriodEnd = '';
+
+
+/* ━━ 전화번호 자동 하이픈 ━━ */
+function autoHyphen(input) {
+  var v = input.value.replace(/[^0-9]/g, '');
+  if (v.length <= 3) {
+    input.value = v;
+  } else if (v.length <= 7) {
+    input.value = v.slice(0,3) + '-' + v.slice(3);
+  } else {
+    input.value = v.slice(0,3) + '-' + v.slice(3,7) + '-' + v.slice(7,11);
+  }
+}
+window.addEventListener('load', function() {
+  try {
+    sb = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+    loadAdminCredentials().then(function() { pageLogin(); });
+  } catch(e) {
+    document.getElementById('root').innerHTML =
+      '<div style="padding:1rem;color:#A32D2D;font-size:14px"><strong>초기화 오류:</strong><br>' + e.message + '</div>';
+  }
+});
+
+async function loadAdminCredentials() {
+  try {
+    var res = await sb.from('settings').select('*').in('key', ['admin_email','admin_pw']);
+    if (res.data && res.data.length > 0) {
+      res.data.forEach(function(r) {
+        if (r.key === 'admin_email') ADMIN_EMAIL = r.value;
+        if (r.key === 'admin_pw')    ADMIN_PW    = r.value;
+      });
+    }
+  } catch(e) { console.log('admin credentials load error:', e); }
+}
+
+function el(id) { return document.getElementById(id); }
+function normalizePhone(p) { return p.replace(/[^0-9]/g, ''); }
+function html(s) { el('root').innerHTML = s; }
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+
+function toast(msg) {
+  var t = el('toast'); t.textContent = msg; t.classList.add('on');
+  setTimeout(function() { t.classList.remove('on'); }, 2500);
+}
+function loading(msg) {
+  html('<div class="loading"><div class="spin"></div><br>' + (msg || '불러오는 중...') + '</div>');
+}
+function fmtDate(d) {
+  var dt = new Date(d + 'T00:00:00');
+  var days = ['일','월','화','수','목','금','토'];
+  return dt.getFullYear() + '년 ' + (dt.getMonth()+1) + '월 ' + dt.getDate() + '일 (' + days[dt.getDay()] + ')';
+}
+function badgeSt(s) {
+  if (s === 'pending') return '<span class="badge b-pending">검토 중</span>';
+  if (s === 'approved') return '<span class="badge b-approved">승인</span>';
+  return '<span class="badge b-rejected">반려</span>';
+}
+function closeModal() { el('modal-area').innerHTML = ''; }
+
+/* ━━ 달력 ━━ */
+function initCal(d) {
+  var dt = d ? new Date(d + 'T00:00:00') : new Date();
+  calY = dt.getFullYear(); calM = dt.getMonth();
+  selDate = d || todayStr();
+}
+function buildCal(marked) {
+  var td = todayStr();
+  var fd = new Date(calY, calM, 1).getDay();
+  var dim = new Date(calY, calM+1, 0).getDate();
+  var dipm = new Date(calY, calM, 0).getDate();
+  var mns = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  var cells = '', i, d, ds, dow, c, isSubmitted, isFuture;
+  for (i = 0; i < fd; i++) cells += '<div class="cday other">' + (dipm-fd+1+i) + '</div>';
+  for (d = 1; d <= dim; d++) {
+    ds = calY + '-' + String(calM+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+    dow = new Date(calY, calM, d).getDay();
+    isSubmitted = marked && marked.indexOf(ds) >= 0;
+    isFuture = ds > td;
+    var isOutRange = (globalPeriodStart && ds < globalPeriodStart) || (globalPeriodEnd && ds > globalPeriodEnd);
+    c = 'cday';
+    if (ds === td) c += ' today';
+    if (ds === selDate && !isSubmitted && !isOutRange) c += ' sel';
+    if (dow === 0) c += ' sun';
+    if (dow === 6) c += ' sat';
+    if (isSubmitted) {
+      c += ' has';
+      cells += '<div class="' + c + '">' + d + '</div>';
+    } else if (isFuture || isOutRange) {
+      c += ' future';
+      cells += '<div class="' + c + '">' + d + '</div>';
+    } else {
+      c += ' clickable';
+      cells += '<div class="' + c + '" onclick="pickDate(\'' + ds + '\')">' + d + '</div>';
+    }
+  }
+  var rem = 42 - fd - dim;
+  for (d = 1; d <= rem; d++) cells += '<div class="cday other">' + d + '</div>';
+  return '<div class="cal-wrap">' +
+    '<div class="cal-head"><button onclick="moveCal(-1)">&#8249;</button>' +
+    '<span>' + calY + '년 ' + mns[calM] + '</span>' +
+    '<button onclick="moveCal(1)">&#8250;</button></div>' +
+    '<div class="cal-grid">' +
+    '<div class="cdn">일</div><div class="cdn">월</div><div class="cdn">화</div>' +
+    '<div class="cdn">수</div><div class="cdn">목</div><div class="cdn">금</div><div class="cdn">토</div>' +
+    cells + '</div>' +
+    '<div class="cal-sel">📅 선택된 날짜: ' + fmtDate(selDate) + '</div></div>';
+}
+function moveCal(d) {
+  calM += d;
+  if (calM < 0) { calM = 11; calY--; }
+  if (calM > 11) { calM = 0; calY++; }
+  refreshCal();
+}
+function pickDate(d) {
+  if (d > todayStr()) return;
+  if (globalMarked.indexOf(d) >= 0) return;
+  selDate = d; refreshCal();
+}
+async function refreshCal() {
+  var res = await sb.from('activities').select('activity_date').eq('user_phone', sess.user.phone);
+  globalMarked = (res.data || []).map(function(r) { return r.activity_date; });
+  if (el('calArea')) el('calArea').innerHTML = buildCal(globalMarked);
+}
+
+/* ━━ 로그인 (2단계) ━━ */
+function pageLogin() {
+  photos = [null,null]; sess = { user: null, isAdmin: false }; editingActivityId = null;
+  html(
+    '<div class="brand-header">' +
+    '<div class="brand-sub">의정부시민대학 시민LAB 도전실험실</div>' +
+    '<div class="brand-title">목표달성 작심10일</div>' +
+    '<div class="brand-divider"></div>' +
+    '<div class="brand-org">의정부도시교육재단</div>' +
+    '</div>' +
+    '<div class="field"><label>이름</label><input id="uname" placeholder="홍길동"/></div>' +
+    '<div class="field"><label>전화번호</label><input id="uphone" placeholder="010-0000-0000" oninput="autoHyphen(this)" maxlength="13" inputmode="numeric"/></div>' +
+    '<p class="err" id="lerr"></p>' +
+    '<button class="btn btn-p" id="lbtn" onclick="doLoginStep1()">다음</button>' +
+    '<span class="lnk" onclick="pageAdminLogin()">관리자로 로그인 →</span>'
+  );
+}
+
+async function doLoginStep1() {
+  var name = el('uname').value.trim(), phone = normalizePhone(el('uphone').value.trim());
+  if (!name || !phone) { el('lerr').textContent = '이름과 전화번호를 입력해주세요.'; return; }
+  var btn = el('lbtn'); btn.disabled=true; btn.textContent='확인 중...';
+  var res = await sb.from('users').select('*').eq('name', name).eq('phone', phone).maybeSingle();
+  if (res.error || !res.data) {
+    el('lerr').textContent = '등록되지 않은 수강생입니다. 담당자에게 문의해주세요.';
+    btn.disabled=false; btn.textContent='다음'; return;
+  }
+  var user = res.data;
+  if (!user.password) {
+    pageSetPassword(user);
+  } else {
+    pageLoginPassword(user);
+  }
+}
+
+function pageLoginPassword(user) {
+  html(
+    '<div class="brand-header">' +
+    '<div class="brand-sub">의정부시민대학 시민LAB 도전실험실</div>' +
+    '<div class="brand-title">목표달성 작심10일</div>' +
+    '<div class="brand-divider"></div>' +
+    '<div class="brand-org">의정부도시교육재단</div>' +
+    '</div>' +
+    '<p style="font-size:14px;color:#555;margin-bottom:1.25rem;text-align:center">안녕하세요, <strong>' + user.name + '</strong>님!</p>' +
+    '<div class="field"><label>비밀번호</label><input id="upw" type="password" placeholder="비밀번호 입력"/></div>' +
+    '<p class="err" id="pwerr"></p>' +
+    '<button class="btn btn-p" id="pwbtn" onclick="doLoginStep2(' + user.id + ',\'' + user.password + '\')">로그인</button>' +
+    '<span class="lnk" onclick="pageLogin()">← 돌아가기</span>'
+  );
+  var pwInput = el('upw');
+  if (pwInput) pwInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') doLoginStep2(user.id, user.password);
+  });
+}
+
+async function doLoginStep2(userId, savedPw) {
+  var pw = el('upw').value.trim();
+  if (!pw) { el('pwerr').textContent = '비밀번호를 입력해주세요.'; return; }
+  var btn = el('pwbtn'); btn.disabled=true; btn.textContent='확인 중...';
+  if (pw !== savedPw) {
+    el('pwerr').textContent = '비밀번호가 올바르지 않습니다.';
+    btn.disabled=false; btn.textContent='로그인'; return;
+  }
+  var res = await sb.from('users').select('*').eq('id', userId).single();
+  if (res.error || !res.data) {
+    el('pwerr').textContent = '오류가 발생했습니다. 다시 시도해주세요.';
+    btn.disabled=false; btn.textContent='로그인'; return;
+  }
+  sess.user = res.data;
+  res.data.goal ? pageDash() : pageGoal();
+}
+
+function pageSetPassword(user) {
+  html(
+    '<h1>비밀번호 설정</h1>' +
+    '<div class="info-box">처음 로그인하셨습니다!<br>앞으로 사용할 비밀번호를 설정해주세요.</div>' +
+    '<div class="field"><label>비밀번호 (4자리 이상)</label>' +
+    '<input id="pw1" type="password" placeholder="비밀번호 입력"/></div>' +
+    '<div class="field"><label>비밀번호 확인</label>' +
+    '<input id="pw2" type="password" placeholder="비밀번호 재입력"/></div>' +
+    '<p class="err" id="sperr"></p>' +
+    '<button class="btn btn-p" id="spbtn" onclick="savePassword(' + user.id + ')">설정하기</button>' +
+    '<span class="lnk" onclick="pageLogin()">← 돌아가기</span>'
+  );
+}
+
+async function savePassword(userId) {
+  var pw1 = el('pw1').value.trim(), pw2 = el('pw2').value.trim();
+  if (!pw1) { el('sperr').textContent = '비밀번호를 입력해주세요.'; return; }
+  if (pw1.length < 4) { el('sperr').textContent = '비밀번호는 4자리 이상이어야 합니다.'; return; }
+  if (pw1 !== pw2) { el('sperr').textContent = '비밀번호가 일치하지 않습니다.'; return; }
+  var btn = el('spbtn'); btn.disabled=true; btn.textContent='저장 중...';
+  await sb.from('users').update({ password: pw1 }).eq('id', userId);
+  var res = await sb.from('users').select('*').eq('id', userId).single();
+  sess.user = res.data;
+  toast('✅ 비밀번호가 설정되었습니다!');
+  res.data.goal ? pageDash() : pageGoal();
+}
+
+/* ━━ 관리자 로그인 ━━ */
+function pageAdminLogin() {
+  html(
+    '<h1>관리자 로그인</h1>' +
+    '<div class="field"><label>이메일</label><input id="aem" placeholder="이메일 입력"/></div>' +
+    '<div class="field"><label>비밀번호</label><input id="apw" type="password" placeholder="비밀번호 입력"/></div>' +
+    '<p class="err" id="aerr"></p>' +
+    '<button class="btn btn-p" onclick="doAdminLogin()">로그인</button>' +
+    '<span class="lnk" onclick="pageLogin()">← 돌아가기</span>'
+  );
+}
+function doAdminLogin() {
+  var em = el('aem').value.trim(), pw = el('apw').value.trim();
+  if (em === ADMIN_EMAIL && pw === ADMIN_PW) { sess.isAdmin=true; pageAdmin('all'); }
+  else { el('aerr').textContent = '이메일 또는 비밀번호가 올바르지 않습니다.'; }
+}
+
+/* ━━ 목표 설정 ━━ */
+function pageGoal() {
+  html(
+    '<h1>학습 목표 설정</h1>' +
+    '<p style="font-size:14px;color:#666;margin-bottom:1rem">10일 동안 달성하고 싶은 목표를 입력해주세요.</p>' +
+    '<div class="field"><label>나의 목표</label>' +
+    '<textarea id="ginput" placeholder="예) 매일 30분 독서하기, 운동 10일 연속 실천하기..."></textarea></div>' +
+    '<button class="btn btn-p" id="gbtn" onclick="saveGoal()">목표 저장하기</button>'
+  );
+}
+async function saveGoal() {
+  var g = el('ginput').value.trim();
+  if (!g) { alert('목표를 입력해주세요.'); return; }
+  var btn = el('gbtn'); btn.disabled=true; btn.textContent='저장 중...';
+  var now = new Date().toISOString();
+  await sb.from('users').update({ goal: g, start_date: now }).eq('id', sess.user.id);
+  sess.user.goal = g; sess.user.start_date = now;
+  pageDash();
+}
+
+/* ━━ 대시보드 ━━ */
+async function pageDash() {
+  loading('학습 현황 불러오는 중...');
+  var res = await sb.from('activities').select('*').eq('user_phone', sess.user.phone).order('activity_date', { ascending: false });
+  var list = res.data || [];
+  var setRes = await sb.from('settings').select('*');
+  var settings = {};
+  (setRes.data || []).forEach(function(r) { settings[r.key] = r.value; });
+  var reqCount = parseInt(settings['required_count'] || '10');
+  globalReqCount = reqCount;
+  var periodStart = settings['period_start'] ? new Date(settings['period_start']) : new Date();
+  var periodEnd = settings['period_end'] ? new Date(settings['period_end']) : new Date(periodStart.getTime() + 30*86400000);
+  var done = 0;
+  for (var i = 0; i < list.length; i++) { if (list[i].status === 'approved') done++; }
+  var total = list.length;
+  var pct = Math.round((done / reqCount) * 100);
+  var now2 = new Date();
+  var diff = Math.max(1, Math.floor((now2 - periodStart) / 86400000) + 1);
+  var remDays = Math.max(0, Math.floor((periodEnd - now2) / 86400000));
+  var remCount = Math.max(0, reqCount - done);
+  var rate = remDays > 0 ? remCount / remDays : (remCount > 0 ? 99 : 0);
+  var isFail = remDays < remCount;
+  var sc, si, st, ss;
+  if (isFail) { sc='danger'; si='🚨'; st='달성 불가 위험'; ss='남은 '+remDays+'일 안에 '+remCount+'회 인증이 필요하지만 일수가 부족합니다.'; }
+  else if (rate >= 0.6) { sc='danger'; si='⚠️'; st='속도가 위험합니다'; ss='남은 '+remDays+'일 동안 '+remCount+'회 더 인증해야 합니다. 서두르세요!'; }
+  else if (rate >= 0.3) { sc='safe'; si='✅'; st='여유 있게 진행 중'; ss='남은 '+remDays+'일 동안 '+remCount+'회만 더 인증하면 완료됩니다!'; }
+  else { sc='safe'; si='✅'; st='여유 있게 진행 중'; ss='남은 '+remDays+'일 동안 '+remCount+'회만 더 인증하면 완료됩니다!'; }
+  var failHtml = '';
+  if (isFail) {
+    failHtml = '<div class="fail"><div style="font-size:22px">🚨</div>' +
+      '<div><div style="font-size:13px;font-weight:700">이대로면 목표 달성이 불가능합니다!</div>' +
+      '<div style="font-size:11px;opacity:.85;margin-top:2px">남은 기간('+remDays+'일)보다 필요한 인증('+remCount+'회)이 더 많습니다.</div></div></div>';
+  }
+  var itemsHtml = list.length === 0 ? '<p class="empty">아직 인증 기록이 없습니다.</p>' : '';
+  for (var j = 0; j < list.length; j++) {
+    var a = list[j];
+    var ps = []; if (a.photo1) ps.push(a.photo1); if (a.photo2) ps.push(a.photo2);
+    var ph = '';
+    if (ps.length > 0) {
+      var actId = 'act_' + j;
+      for (var rk2=0;rk2<ps.length;rk2++) { imgRegistry[actId+'_'+rk2] = { imgs: ps, idx: rk2, name: (sess.user?sess.user.name:''), date: a.activity_date }; }
+      ph = '<div class="act-photos">';
+      for (var k = 0; k < ps.length; k++) {
+        ph += '<img class="act-photo" src="' + ps[k] + '" onclick="openFromRegistry(\'' + actId + '_' + k + '\')" style="cursor:zoom-in"/>';
+      }
+      ph += '</div>';
+    }
+    var reasonHtml = '';
+    if (a.status === 'rejected' && a.rejection_reason) {
+      reasonHtml = '<div class="reject-reason">💬 반려 사유: ' + a.rejection_reason + '</div>';
+    }
+    var editBtn = '';
+    if (a.status === 'rejected') {
+      editBtn = '<br><button class="btn-sm btn-edit" onclick="pageEditActivity(' + a.id + ')" style="margin-top:6px">✏️ 수정하여 재제출</button>';
+    }
+    var seqLabel = a.seq >= reqCount ? '참여 후기' : a.seq + '번째 활동';
+    itemsHtml += '<div class="act-item"><div class="act-row">' +
+      '<span class="act-date">' + fmtDate(a.activity_date) + ' · ' + seqLabel + '</span>' +
+      badgeSt(a.status) + '</div>' + ph +
+      '<div class="act-text">' + a.text + '</div>' + reasonHtml +
+      '<span class="badge ' + (a.date_confirmed?'b-ok':'b-no') + '">' + (a.date_confirmed?'날짜 확인됨':'날짜 미확인') + '</span>' +
+      editBtn + '</div>';
+  }
+  html(
+    '<h1>' + sess.user.name + '님의 학습 현황</h1>' +
+    '<div class="goal-card"><div class="goal-label">나의 목표</div><div class="goal-text">' + sess.user.goal + '</div></div>' +
+    '<div class="pgrid">' +
+    '<div class="pstat"><div class="pval">' + diff + '</div><div class="plbl">경과 일수</div></div>' +
+    '<div class="pstat"><div class="pval" style="color:' + (remDays<=3?'#A32D2D':'#111') + '">' + remDays + '</div><div class="plbl">남은 일수</div></div>' +
+    '<div class="pstat"><div class="pval">' + done + '</div><div class="plbl">승인 횟수</div></div>' +
+    '<div class="pstat"><div class="pval" style="color:' + (remCount===0?'#3B6D11':'#111') + '">' + remCount + '</div><div class="plbl">남은 횟수</div></div>' +
+    '</div>' +
+    failHtml +
+    '<div style="font-size:13px;color:#888;margin-bottom:2px">진행률 ' + pct + '% (' + done + '/' + reqCount + ')</div>' +
+    '<div class="pbar"><div class="pfill" style="width:' + Math.min(pct,100) + '%"></div></div>' +
+    '<button class="btn btn-p" style="margin-top:1rem" onclick="pageActivity()">오늘 인증하기</button>' +
+    '<h2>인증 기록</h2><div class="card">' + itemsHtml + '</div>'
+  );
+}
+
+/* ━━ 활동 인증 ━━ */
+async function pageActivity() {
+  loading();
+  var res = await sb.from('activities').select('activity_date', { count: 'exact' }).eq('user_phone', sess.user.phone);
+  var marked = (res.data || []).map(function(r) { return r.activity_date; });
+  globalMarked = marked;
+  var currentCount = res.count || 0;
+  var setRes = await sb.from('settings').select('*');
+  var settings = {};
+  (setRes.data || []).forEach(function(r) { settings[r.key] = r.value; });
+  var reqCount = parseInt(settings['required_count'] || '10');
+  globalReqCount = reqCount;
+  globalPeriodStart = settings['period_start'] ? settings['period_start'].split('T')[0] : '';
+  globalPeriodEnd   = settings['period_end']   ? settings['period_end'].split('T')[0]   : '';
+
+  if (currentCount >= reqCount) {
+    html('<h1>활동 인증하기</h1>' +
+      '<div style="background:#EAF3DE;border:1px solid #97C459;border-radius:10px;padding:1.5rem;text-align:center;margin-bottom:1rem">' +
+      '<div style="font-size:30px;margin-bottom:8px">🎉</div>' +
+      '<div style="font-size:16px;font-weight:700;color:#3B6D11;margin-bottom:4px">목표 달성 완료!</div>' +
+      '<div style="font-size:13px;color:#555">'+reqCount+'회 인증을 모두 완료하셨습니다.</div></div>' +
+      '<span class="lnk" onclick="pageDash()">← 돌아가기</span>');
+    return;
+  }
+
+  // 달력 초기 표시: 오늘이 기간 내면 오늘, 아니면 period_start 월로
+  var calInitDate = todayStr();
+  if (globalPeriodStart && calInitDate < globalPeriodStart) calInitDate = globalPeriodStart;
+  if (globalPeriodEnd   && calInitDate > globalPeriodEnd)   calInitDate = globalPeriodEnd;
+
+  var isLast = (currentCount + 1) >= reqCount;
+  var txtLabel = isLast ? '참여 후기' : '활동 내용';
+  var txtHolder = isLast ? '프로그램에 참여한 소감, 배운 점, 변화된 점을 자유롭게 적어주세요...' : '오늘 배운 것, 실천한 것을 자유롭게 적어주세요...';
+  var lastBanner = isLast ?
+    '<div style="background:#f0f6ff;border:1px solid #B5D4F4;border-radius:10px;padding:12px 14px;margin-bottom:1rem">' +
+    '<div style="font-size:14px;font-weight:700;color:#185FA5;margin-bottom:4px">🏁 마지막 인증입니다!</div>' +
+    '<div style="font-size:13px;color:#555">참여 후기를 남겨주세요. 소감, 배운 점, 변화를 적어주시면 됩니다.</div></div>' : '';
+
+  photos = [null, null]; editingActivityId = null;
+  initCal(calInitDate);
+  renderActivityForm(lastBanner, marked, txtLabel, txtHolder, false, '', false);
+}
+
+async function pageEditActivity(id) {
+  loading('활동 불러오는 중...');
+  var res = await sb.from('activities').select('*').eq('id', id).single();
+  if (res.error || !res.data) { toast('불러오기 실패'); pageDash(); return; }
+  var a = res.data;
+  editingActivityId = id;
+  photos = [a.photo1 || null, a.photo2 || null];
+  initCal(a.activity_date);
+  var markedRes = await sb.from('activities').select('activity_date').eq('user_phone', sess.user.phone).neq('id', id);
+  var marked = (markedRes.data || []).map(function(r) { return r.activity_date; });
+  globalMarked = marked;
+  var editBanner = '<div style="background:#FFF3F3;border:1px solid #F09595;border-radius:10px;padding:12px 14px;margin-bottom:1rem">' +
+    '<div style="font-size:14px;font-weight:700;color:#A32D2D;margin-bottom:4px">✏️ 반려된 활동을 수정합니다</div>' +
+    (a.rejection_reason ? '<div style="font-size:13px;color:#555">반려 사유: ' + a.rejection_reason + '</div>' : '') + '</div>';
+  renderActivityForm(editBanner, marked, '활동 내용', '수정할 내용을 입력해주세요...', true, a.text, a.date_confirmed);
+}
+
+function renderActivityForm(banner, marked, txtLabel, txtHolder, isEdit, existingText, existingDc) {
+  var slotHtml = '';
+  for (var i = 0; i < 2; i++) {
+    if (photos[i]) {
+      slotHtml += '<div class="slot filled" id="slot' + i + '">' +
+        '<img src="' + photos[i] + '" style="width:100%;height:100%;object-fit:cover"/>' +
+        '<div class="dbadge">' + selDate + '</div>' +
+        '<button class="rx" onclick="clearSlot(event,' + i + ')">&#10005;</button></div>';
+    } else {
+      slotHtml += '<div class="slot" id="slot' + i + '" onclick="triggerFile(' + i + ')">' +
+        '<div class="si">📷</div><div class="sl">사진 ' + (i+1) + '</div></div>';
+    }
+  }
+  html('<h1>' + (isEdit ? '활동 수정하기' : '활동 인증하기') + '</h1>' + banner +
+    '<div class="field"><label>활동 날짜 선택</label><div id="calArea">' + buildCal(marked) + '</div></div>' +
+    '<div class="field"><label>활동 사진 <span style="color:#aaa;font-size:11px">(JPG·PNG, 1장당 최대 10MB, 날짜가 보이게 촬영)</span></label>' +
+    '<div class="photo-row">' + slotHtml + '</div>' +
+    '<input type="file" id="f0" accept=".jpg,.jpeg,.png" style="display:none" onchange="loadPhoto(event,0)"/>' +
+    '<input type="file" id="f1" accept=".jpg,.jpeg,.png" style="display:none" onchange="loadPhoto(event,1)"/></div>' +
+    '<div class="chk-box"><input type="checkbox" id="dchk"' + (existingDc ? ' checked' : '') + '/>' +
+    '<label for="dchk"><strong>업로드한 사진에서 날짜를 확인할 수 있습니다.</strong> <span style="color:#A32D2D;font-size:11px">(필수)</span><br>' +
+    '<span style="font-size:11px;color:#aaa">(사진 속 날짜 표시, 영수증, 당일 신문 등)</span></label></div>' +
+    '<div class="field"><label>' + txtLabel + '</label>' +
+    '<textarea id="atxt" placeholder="' + txtHolder + '">' + (existingText || '') + '</textarea></div>' +
+    '<p class="err" id="aerr2"></p>' +
+    '<button class="btn btn-p" id="sbtn" onclick="submitActivity()">' + (isEdit ? '수정하여 재제출' : '인증 제출하기') + '</button>' +
+    '<span class="lnk" onclick="pageDash()">← 돌아가기</span>');
+}
+
+function triggerFile(i) { if (!photos[i]) el('f'+i).click(); }
+function loadPhoto(e, i) {
+  var file = e.target.files[0]; if (!file) return;
+  var allowed = ['image/jpeg','image/jpg','image/png'];
+  if (allowed.indexOf(file.type) < 0) { alert('JPG, JPEG, PNG 파일만 업로드 가능합니다.'); el('f'+i).value=''; return; }
+  if (file.size > 10*1024*1024) { alert('사진 1장당 최대 10MB까지 업로드 가능합니다.'); el('f'+i).value=''; return; }
+  compressPhoto(file, function(compressed) { photos[i] = compressed; renderSlot(i); });
+}
+function compressPhoto(file, callback) {
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    var img = new Image();
+    img.onload = function() {
+      var canvas = document.createElement('canvas');
+      var MAX = 1200, w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h*MAX/w); w = MAX; }
+        else { w = Math.round(w*MAX/h); h = MAX; }
+      }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      callback(canvas.toDataURL('image/jpeg', 0.7));
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function renderSlot(i) {
+  var s = el('slot'+i); s.classList.add('filled'); s.onclick=null;
+  s.innerHTML = '<img src="' + photos[i] + '" style="width:100%;height:100%;object-fit:cover"/>' +
+    '<div class="dbadge">' + selDate + '</div>' +
+    '<button class="rx" onclick="clearSlot(event,' + i + ')">&#10005;</button>';
+}
+function clearSlot(e, i) {
+  e.stopPropagation(); photos[i] = null;
+  var s = el('slot'+i); s.classList.remove('filled');
+  s.onclick = function() { triggerFile(i); };
+  s.innerHTML = '<div class="si">📷</div><div class="sl">사진 ' + (i+1) + '</div>';
+  el('f'+i).value = '';
+}
+
+async function submitActivity() {
+  var errEl = el('aerr2');
+  var ps = []; if (photos[0]) ps.push(photos[0]); if (photos[1]) ps.push(photos[1]);
+  if (!ps.length) { errEl.textContent = '사진을 최소 1장 업로드해주세요.'; return; }
+  var dc = el('dchk').checked;
+  if (!dc) { errEl.textContent = '사진에서 날짜 확인 체크가 필요합니다.'; return; }
+  var txt = el('atxt').value.trim();
+  if (!txt) { errEl.textContent = '내용을 입력해주세요.'; return; }
+  var btn = el('sbtn'); btn.disabled=true; btn.textContent='제출 중...';
+  if (editingActivityId) {
+    var upd = await sb.from('activities').update({
+      activity_date: selDate, text: txt,
+      photo1: photos[0]||null, photo2: photos[1]||null,
+      date_confirmed: dc, status: 'pending', rejection_reason: null
+    }).eq('id', editingActivityId);
+    if (upd.error) { errEl.textContent='저장 중 오류가 발생했습니다.'; btn.disabled=false; btn.textContent='수정하여 재제출'; return; }
+    toast('✅ 수정하여 재제출되었습니다!');
+  } else {
+    var dupRes = await sb.from('activities').select('id').eq('user_phone', sess.user.phone).eq('activity_date', selDate).maybeSingle();
+    if (dupRes.data) { errEl.textContent='해당 날짜에 이미 인증하셨습니다.'; btn.disabled=false; btn.textContent='인증 제출하기'; return; }
+    var cntRes = await sb.from('activities').select('*', { count:'exact', head:true }).eq('user_phone', sess.user.phone);
+    var ins = await sb.from('activities').insert({
+      user_id: sess.user.id, user_name: sess.user.name, user_phone: sess.user.phone,
+      activity_date: selDate, seq: (cntRes.count||0)+1, text: txt,
+      photo1: photos[0]||null, photo2: photos[1]||null, date_confirmed: dc, status: 'pending'
+    });
+    if (ins.error) { errEl.textContent='저장 중 오류가 발생했습니다.'; btn.disabled=false; btn.textContent='인증 제출하기'; return; }
+    toast('✅ 인증이 제출되었습니다!');
+  }
+  photos=[null,null]; editingActivityId=null; pageDash();
+}
+
+/* ━━ 관리자 페이지 ━━ */
+async function pageAdmin(filter) {
+  filter = filter || 'all';
+  loading('인증 목록 불러오는 중...');
+  var setRes = await sb.from('settings').select('*');
+  var settings = {};
+  (setRes.data || []).forEach(function(r) { settings[r.key] = r.value; });
+  var reqCount = parseInt(settings['required_count'] || '10');
+  var res = await sb.from('activities').select('id,user_name,user_phone,activity_date,seq,text,status,date_confirmed,rejection_reason,created_at').order('created_at', { ascending: false });
+  var acts = res.data || [];
+  var cntAll=acts.length, cntPending=0, cntApproved=0;
+  for (var i=0;i<acts.length;i++) {
+    if (acts[i].status==='pending') cntPending++;
+    if (acts[i].status==='approved') cntApproved++;
+  }
+  var list = filter==='all' ? acts : acts.filter(function(a) { return a.status===filter; });
+  var cardsHtml = list.length===0 ? '<div class="card"><p class="empty">해당 인증 내역이 없습니다.</p></div>' : '';
+  for (var j=0;j<list.length;j++) {
+    var a = list[j];
+    var ps=[]; if (a.photo1) ps.push(a.photo1); if (a.photo2) ps.push(a.photo2);
+    var ph='';
+    if (ps.length>0) {
+      ph='<div class="aphotos">';
+      for (var k=0;k<ps.length;k++) {
+        ph+='<div class="aphoto" onclick="openFromRegistry(&quot;admin_'+j+'_'+k+'&quot;)" style="cursor:zoom-in">' +
+          '<img src="'+ps[k]+'"/><div class="aoverlay">' +
+          '<div class="ad">📅 '+a.activity_date+'</div>' +
+          '<div class="an">사진 '+(k+1)+' · 클릭하여 크게 보기</div></div></div>';
+      }
+      ph+='</div>';
+    }
+    var reasonHtml='';
+    if (a.rejection_reason) {
+      reasonHtml='<div style="background:#FFF3F3;border:1px solid #F09595;border-radius:8px;padding:8px 12px;font-size:13px;color:#A32D2D;margin-bottom:8px">💬 반려 사유: '+a.rejection_reason+'</div>';
+    }
+    var seqLabel = a.seq >= reqCount ? '참여 후기' : a.seq + '번째 활동';
+    cardsHtml+='<div class="acard"><div class="acard-top"><div class="ainfo">' +
+      '<div class="avatar">'+a.user_name.slice(-2)+'</div>' +
+      '<div><div style="font-size:15px;font-weight:700;color:#111">'+a.user_name+'</div>' +
+      '<div class="ameta">'+a.user_phone+' · '+fmtDate(a.activity_date)+'</div></div></div>' +
+      badgeSt(a.status)+'</div>' +
+      '<div class="chips"><span class="chip">🏃 '+seqLabel+'</span>' +
+      
+      '<span class="badge '+(a.date_confirmed?'b-ok':'b-no')+'">'+(a.date_confirmed?'✔ 날짜 확인됨':'✗ 날짜 미확인')+'</span></div>' +
+      ph+reasonHtml+
+      '<div style="font-size:14px;color:#333;margin-bottom:10px;line-height:1.6">'+a.text+'</div>' +
+      '<div><button class="btn-sm btn-ok" onclick="setStatus('+a.id+',\'approved\',\''+filter+'\')">✔ 승인</button>' +
+      '<button class="btn-sm btn-ng" onclick="showRejectModal('+a.id+',\''+filter+'\')">✗ 반려</button></div></div>';
+  }
+  html('<h1>관리자 페이지</h1>' +
+    '<div class="tabs">' +
+    '<div class="tab '+(filter==='all'?'on':'')+'" onclick="pageAdmin(\'all\')">전체 '+cntAll+'</div>' +
+    '<div class="tab '+(filter==='pending'?'on':'')+'" onclick="pageAdmin(\'pending\')">검토 중 '+cntPending+'</div>' +
+    '<div class="tab '+(filter==='approved'?'on':'')+'" onclick="pageAdmin(\'approved\')">승인 '+cntApproved+'</div>' +
+    '</div>'+cardsHtml+
+    '<div class="divider">' +
+    '<p class="sec-title">수강생 관리</p>' +
+    '<button class="btn" style="font-size:13px" onclick="pageAddStudent()">➕ 수강생 1명 등록</button>' +
+    '<button class="btn" style="font-size:13px" onclick="pageUploadStudents()">📋 엑셀로 일괄 등록</button>' +
+    '<button class="btn" style="font-size:13px" onclick="pageStudentList()">👥 학습자 현황 보기</button>' +
+    '<p class="sec-title" style="margin-top:1rem">프로그램 관리</p>' +
+    '<button class="btn" style="font-size:13px" onclick="pageSettings()">⚙️ 활동기간 설정</button>' +
+    '<button class="btn btn-red" style="font-size:13px" onclick="pageReset()">🔄 수강생 리셋</button>' +
+    '<p class="sec-title" style="margin-top:1rem">데이터 내보내기</p>' +
+    '<button class="btn btn-p" style="font-size:13px" onclick="dlExcel()">📊 엑셀(.xlsx) 다운로드</button>' +
+    '<button class="btn" style="font-size:13px" onclick="dlZip()">🖼️ 사진+엑셀 ZIP (승인만)</button>' +
+    '<p style="font-size:11px;color:#aaa;text-align:center;margin-top:6px">인증목록 · 학습자요약 · 기간현황 시트 포함</p></div>');
+}
+
+function showRejectModal(id, filter) {
+  el('modal-area').innerHTML =
+    '<div class="modal-bg" onclick="closeModal()">' +
+    '<div class="modal" onclick="event.stopPropagation()">' +
+    '<h2>반려 사유 입력</h2>' +
+    '<div class="field"><label>반려 사유 <span style="color:#aaa;font-size:11px">(선택사항)</span></label>' +
+    '<textarea id="rr" placeholder="예) 사진에서 날짜를 확인할 수 없습니다." style="height:90px"></textarea></div>' +
+    '<button class="btn btn-red" onclick="doReject('+id+',\''+filter+'\')">✗ 반려 처리</button>' +
+    '<button class="btn" onclick="closeModal()">취소</button>' +
+    '</div></div>';
+}
+async function doReject(id, filter) {
+  var reason = el('rr').value.trim();
+  await sb.from('activities').update({ status:'rejected', rejection_reason: reason||null }).eq('id', id);
+  closeModal(); toast('✗ 반려 처리되었습니다.'); pageAdmin(filter);
+}
+async function setStatus(id, status, filter) {
+  await sb.from('activities').update({ status:status, rejection_reason:null }).eq('id', id);
+  toast(status==='approved' ? '✔ 승인 처리되었습니다.' : '✗ 반려 처리되었습니다.');
+  pageAdmin(filter);
+}
+
+/* ━━ 활동기간 설정 ━━ */
+async function pageSettings() {
+  loading('설정 불러오는 중...');
+  var res = await sb.from('settings').select('*');
+  var settings = {};
+  (res.data || []).forEach(function(r) { settings[r.key] = r.value; });
+  var pStart = settings['period_start'] ? settings['period_start'].split('T')[0] : todayStr();
+  var pEnd = settings['period_end'] ? settings['period_end'].split('T')[0] : '';
+  var rCount = settings['required_count'] || '10';
+  html('<h1>활동기간 설정</h1>' +
+    '<div class="info-box">📌 설정을 변경하면 모든 학습자의 대시보드에 즉시 반영됩니다.</div>' +
+    '<div class="set-card"><h3>기간 설정</h3>' +
+    '<div class="field"><label>프로그램 시작일</label><input type="date" id="pstart" value="'+pStart+'"/></div>' +
+    '<div class="field"><label>프로그램 종료일</label><input type="date" id="pend" value="'+pEnd+'"/></div>' +
+    '<div class="field"><label>필요 인증 횟수</label><input type="number" id="rcount" value="'+rCount+'" min="1" max="100"/></div>' +
+    '</div>' +
+    '<button class="btn btn-p" id="setbtn" onclick="saveSettings()">저장하기</button>' +
+    '<div class="set-card" style="margin-top:1rem"><h3>🔐 담당자 계정 변경</h3>' +
+    '<p style="font-size:13px;color:#666;margin-bottom:1rem">담당자가 바뀔 때 이메일과 비밀번호를 변경하세요.</p>' +
+    '<div class="field"><label>담당자 이메일</label><input id="a_email" placeholder="이메일 입력" value="'+ADMIN_EMAIL+'"/></div>' +
+    '<div class="field"><label>새 비밀번호</label><input id="a_pw1" type="password" placeholder="새 비밀번호 (4자리 이상)"/></div>' +
+    '<div class="field"><label>새 비밀번호 확인</label><input id="a_pw2" type="password" placeholder="새 비밀번호 재입력"/></div>' +
+    '<p class="err" id="a_err"></p>' +
+    '<button class="btn" id="a_btn" onclick="saveAdminCredentials()">담당자 계정 변경</button>' +
+    '</div>' +
+    '<span class="lnk" onclick="pageAdmin(\'all\')">← 돌아가기</span>');
+}
+async function saveSettings() {
+  var pstart=el('pstart').value, pend=el('pend').value, rcount=el('rcount').value;
+  if (!pstart||!pend||!rcount) { alert('모든 항목을 입력해주세요.'); return; }
+  if (pend < pstart) { alert('종료일은 시작일 이후여야 합니다.'); return; }
+  var btn=el('setbtn'); btn.disabled=true; btn.textContent='저장 중...';
+  var updates = [
+    { key:'period_start', value: new Date(pstart).toISOString() },
+    { key:'period_end',   value: new Date(pend).toISOString() },
+    { key:'required_count', value: rcount }
+  ];
+  for (var i=0;i<updates.length;i++) {
+    await sb.from('settings').upsert({ key:updates[i].key, value:updates[i].value, updated_at:new Date().toISOString() }, { onConflict:'key' });
+  }
+  toast('✅ 설정이 저장되었습니다!'); pageAdmin('all');
+}
+
+/* ━━ 학습자 현황 ━━ */
+async function saveAdminCredentials() {
+  var email = el('a_email').value.trim();
+  var pw1   = el('a_pw1').value.trim();
+  var pw2   = el('a_pw2').value.trim();
+  var err   = el('a_err');
+  if (!email) { err.textContent = '이메일을 입력해주세요.'; return; }
+  if (!pw1)   { err.textContent = '새 비밀번호를 입력해주세요.'; return; }
+  if (pw1.length < 4) { err.textContent = '비밀번호는 4자리 이상이어야 합니다.'; return; }
+  if (pw1 !== pw2) { err.textContent = '비밀번호가 일치하지 않습니다.'; return; }
+  var btn = el('a_btn'); btn.disabled=true; btn.textContent='저장 중...';
+  await sb.from('settings').upsert({ key:'admin_email', value:email, updated_at:new Date().toISOString() }, { onConflict:'key' });
+  await sb.from('settings').upsert({ key:'admin_pw',    value:pw1,   updated_at:new Date().toISOString() }, { onConflict:'key' });
+  ADMIN_EMAIL = email; ADMIN_PW = pw1;
+  toast('✅ 담당자 계정이 변경되었습니다!');
+  btn.disabled=false; btn.textContent='담당자 계정 변경';
+  err.textContent='';
+}
+
+async function pageStudentList() {
+  loading('학습자 현황 불러오는 중...');
+  var setRes = await sb.from('settings').select('*');
+  var settings = {};
+  (setRes.data || []).forEach(function(r) { settings[r.key] = r.value; });
+  var reqCount = parseInt(settings['required_count'] || '10');
+  var uRes = await sb.from('users').select('*').order('created_at');
+  var aRes = await sb.from('activities').select('*');
+  var users = uRes.data || [], acts = aRes.data || [];
+  var statsMap = {};
+  for (var i=0;i<acts.length;i++) {
+    var a=acts[i];
+    if (!statsMap[a.user_phone]) statsMap[a.user_phone]={total:0,approved:0,pending:0,rejected:0};
+    statsMap[a.user_phone].total++; statsMap[a.user_phone][a.status]++;
+  }
+  var rows = '';
+  for (var j=0;j<users.length;j++) {
+    var u=users[j];
+    var s=statsMap[u.phone]||{total:0,approved:0,pending:0,rejected:0};
+    var pct=Math.round((s.approved/reqCount)*100);
+    var bar='<div style="background:#eee;border-radius:99px;height:6px;width:50px;display:inline-block;vertical-align:middle;margin-left:4px">' +
+      '<div style="background:#1D9E75;height:100%;border-radius:99px;width:'+Math.min(pct,100)+'%"></div></div>';
+    var hasPw = u.password ? '✅' : '❌';
+    rows+='<tr>' +
+      '<td style="padding:8px 10px;border:1px solid #e8e8e4">'+u.name+'</td>' +
+      '<td style="padding:8px 10px;border:1px solid #e8e8e4">'+u.phone+'</td>' +
+      '<td style="padding:8px 10px;border:1px solid #e8e8e4;text-align:center">'+hasPw+'</td>' +
+      '<td style="padding:8px 10px;border:1px solid #e8e8e4;text-align:center">'+s.approved+'</td>' +
+      '<td style="padding:8px 10px;border:1px solid #e8e8e4">'+pct+'%'+bar+'</td>' +
+      '<td style="padding:8px 10px;border:1px solid #e8e8e4">' +
+      '<button class="btn-sm" style="font-size:10px;margin-bottom:3px" onclick="confirmResetPw(\''+u.phone+'\',\''+u.name+'\')">🔑 비번초기화</button><br>' +
+      '<button class="btn-sm btn-ng" style="font-size:10px" onclick="confirmResetUser(\''+u.phone+'\',\''+u.name+'\')">🗑️ 삭제</button>' +
+      '</td></tr>';
+  }
+  html('<h1>학습자 현황 (총 '+users.length+'명)</h1>' +
+    '<div style="overflow-x:auto"><table class="stbl">' +
+    '<tr><th>이름</th><th>전화번호</th><th>비번</th><th>승인</th><th>달성률</th><th>관리</th></tr>' +
+    (rows||'<tr><td colspan="6" style="padding:1.5rem;text-align:center;color:#999">등록된 수강생이 없습니다.</td></tr>') +
+    '</table></div>' +
+    '<span class="lnk" onclick="pageAdmin(\'all\')">← 돌아가기</span>');
+}
+
+async function confirmResetPw(phone, name) {
+  if (!confirm(name+'님의 비밀번호를 초기화하시겠습니까?\n다음 로그인 시 새 비밀번호를 설정하게 됩니다.')) return;
+  await sb.from('users').update({ password: null }).eq('phone', phone);
+  toast('✅ '+name+'님의 비밀번호가 초기화되었습니다.');
+  pageStudentList();
+}
+
+/* ━━ 수강생 리셋 ━━ */
+function pageReset() {
+  html('<h1>수강생 리셋</h1>' +
+    '<div style="background:#FFF3F3;border:1px solid #F09595;border-radius:10px;padding:12px 14px;margin-bottom:1.5rem">' +
+    '<div style="font-size:14px;font-weight:700;color:#A32D2D;margin-bottom:4px">⚠️ 주의사항</div>' +
+    '<div style="font-size:13px;color:#555;line-height:1.7">' +
+    '리셋하면 수강생 정보와 인증 기록이 <strong>영구적으로 삭제</strong>됩니다.<br>' +
+    '새 기수 시작 전에 사용하세요. 되돌릴 수 없습니다.</div></div>' +
+    '<div class="set-card"><h3>전체 수강생 리셋</h3>' +
+    '<p style="font-size:13px;color:#666;margin-bottom:1rem">모든 수강생 정보와 인증 기록을 삭제합니다.<br>새 기수 등록 전에 사용하세요.</p>' +
+    '<button class="btn btn-red" onclick="confirmResetAll()">전체 수강생 + 인증 기록 삭제</button></div>' +
+    '<div class="set-card"><h3>특정 수강생 삭제</h3>' +
+    '<p style="font-size:13px;color:#666;margin-bottom:1rem">특정 수강생의 정보와 인증 기록을 삭제합니다.</p>' +
+    '<div class="field"><label>전화번호</label><input id="reset_phone" placeholder="010-0000-0000" oninput="autoHyphen(this)" maxlength="13" inputmode="numeric"/></div>' +
+    '<button class="btn btn-red" onclick="confirmResetByPhone()">해당 수강생 삭제</button></div>' +
+    '<span class="lnk" onclick="pageAdmin(\'all\')">← 돌아가기</span>');
+}
+function confirmResetAll() {
+  if (!confirm('정말로 전체 수강생 정보와 인증 기록을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
+  if (!confirm('마지막 확인입니다. 새 기수 시작을 위해 전체 데이터를 삭제합니까?')) return;
+  doResetAll();
+}
+async function doResetAll() {
+  loading('삭제 중...');
+  await sb.from('activities').delete().neq('id', 0);
+  await sb.from('users').delete().neq('id', 0);
+  toast('✅ 전체 수강생 정보가 삭제되었습니다. 새 기수를 등록해주세요.');
+  pageAdmin('all');
+}
+function confirmResetByPhone() {
+  var phone = normalizePhone(el('reset_phone').value.trim());
+  if (!phone) { alert('전화번호를 입력해주세요.'); return; }
+  if (!confirm(phone+' 수강생을 삭제하시겠습니까?')) return;
+  doResetUser(phone);
+}
+async function doResetUser(phone) {
+  loading('삭제 중...');
+  await sb.from('activities').delete().eq('user_phone', phone);
+  await sb.from('users').delete().eq('phone', phone);
+  toast('✅ 해당 수강생이 삭제되었습니다.');
+  pageAdmin('all');
+}
+function confirmResetUser(phone, name) {
+  if (!confirm(name+'('+phone+') 수강생을 삭제하시겠습니까?')) return;
+  doResetUser(phone);
+}
+
+/* ━━ 수강생 등록 ━━ */
+function pageAddStudent() {
+  html('<h1>수강생 등록</h1>' +
+    '<p style="font-size:13px;color:#888;margin-bottom:1.25rem">등록된 수강생만 로그인할 수 있습니다.</p>' +
+    '<div class="field"><label>이름</label><input id="sn" placeholder="홍길동"/></div>' +
+    '<div class="field"><label>전화번호</label><input id="sp" placeholder="010-0000-0000" oninput="autoHyphen(this)" maxlength="13" inputmode="numeric"/></div>' +
+    '<p class="err" id="serr"></p>' +
+    '<button class="btn btn-p" id="sbtn2" onclick="addStudent()">등록하기</button>' +
+    '<span class="lnk" onclick="pageAdmin(\'all\')">← 돌아가기</span>');
+}
+async function addStudent() {
+  var name=el('sn').value.trim(), phone=normalizePhone(el('sp').value.trim());
+  if (!name||!phone) { el('serr').textContent='이름과 전화번호를 모두 입력해주세요.'; return; }
+  var btn=el('sbtn2'); btn.disabled=true; btn.textContent='등록 중...';
+  var res=await sb.from('users').insert({name:name,phone:phone});
+  if (res.error) {
+    el('serr').textContent=res.error.code==='23505'?'이미 등록된 전화번호입니다.':'등록 중 오류가 발생했습니다.';
+    btn.disabled=false; btn.textContent='등록하기'; return;
+  }
+  toast('✅ '+name+'님이 등록되었습니다!'); pageAdmin('all');
+}
+
+/* ━━ 엑셀 일괄 등록 ━━ */
+function pageUploadStudents() {
+  html('<h1>수강생 일괄 등록</h1>' +
+    '<p style="font-size:13px;color:#888;margin-bottom:1.25rem">엑셀 파일에 <strong>이름</strong>과 <strong>전화번호</strong> 컬럼이 있어야 해요.</p>' +
+    '<div class="card" style="margin-bottom:1rem">' +
+    '<p style="font-size:13px;font-weight:600;margin-bottom:8px">📌 엑셀 양식 안내</p>' +
+    '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+    '<tr style="background:#f5f5f3"><td style="padding:6px 10px;border:1px solid #e8e8e4;font-weight:600">이름</td><td style="padding:6px 10px;border:1px solid #e8e8e4;font-weight:600">전화번호</td></tr>' +
+    '<tr><td style="padding:6px 10px;border:1px solid #e8e8e4">홍길동</td><td style="padding:6px 10px;border:1px solid #e8e8e4">010-1234-5678</td></tr>' +
+    '</table>' +
+    '<button class="btn" style="font-size:12px;margin-top:10px" onclick="dlSampleExcel()">📥 양식 다운로드</button></div>' +
+    '<div class="field"><label>엑셀 파일 선택 (.xlsx, .xls)</label>' +
+    '<input type="file" id="exfile" accept=".xlsx,.xls" style="padding:8px;border:1px solid #ddd;border-radius:8px;width:100%" onchange="previewStudents(event)"/></div>' +
+    '<div id="preview"></div><p class="err" id="uerr"></p>' +
+    '<button class="btn btn-p" id="ubtn" style="display:none" onclick="uploadStudents()">등록하기</button>' +
+    '<span class="lnk" onclick="pageAdmin(\'all\')">← 돌아가기</span>');
+}
+function previewStudents(e) {
+  var file=e.target.files[0]; if (!file) return;
+  var reader=new FileReader();
+  reader.onload=function(ev) {
+    var wb=XLSX.read(ev.target.result,{type:'array'});
+    var ws=wb.Sheets[wb.SheetNames[0]];
+    var rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+    if (!rows.length) { el('uerr').textContent='데이터가 없습니다.'; return; }
+    var keys=Object.keys(rows[0]),nameKey=null,phoneKey=null;
+    for (var i=0;i<keys.length;i++) {
+      if (keys[i].indexOf('이름')>=0||keys[i].toLowerCase().indexOf('name')>=0) nameKey=keys[i];
+      if (keys[i].indexOf('전화')>=0||keys[i].indexOf('번호')>=0||keys[i].toLowerCase().indexOf('phone')>=0) phoneKey=keys[i];
+    }
+    if (!nameKey||!phoneKey) { el('uerr').textContent='"이름"과 "전화번호" 컬럼이 필요합니다.'; return; }
+    pendingStudents=[];
+    for (var j=0;j<rows.length;j++) {
+      var n=String(rows[j][nameKey]).trim(),p=String(rows[j][phoneKey]).trim();
+      if (n&&p) pendingStudents.push({name:n,phone:normalizePhone(p)});
+    }
+    if (!pendingStudents.length) { el('uerr').textContent='등록할 데이터가 없습니다.'; return; }
+    var rh='';
+    for (var k=0;k<pendingStudents.length;k++) {
+      rh+='<tr><td style="padding:6px 10px;border:1px solid #e8e8e4">'+(k+1)+'</td>' +
+        '<td style="padding:6px 10px;border:1px solid #e8e8e4">'+pendingStudents[k].name+'</td>' +
+        '<td style="padding:6px 10px;border:1px solid #e8e8e4">'+pendingStudents[k].phone+'</td></tr>';
+    }
+    el('preview').innerHTML='<div class="card" style="margin-bottom:1rem">' +
+      '<p style="font-size:13px;font-weight:600;margin-bottom:8px">📋 총 '+pendingStudents.length+'명 확인되었습니다.</p>' +
+      '<div style="max-height:200px;overflow-y:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">' +
+      '<tr style="background:#f5f5f3">' +
+      '<td style="padding:6px 10px;border:1px solid #e8e8e4;font-weight:600">번호</td>' +
+      '<td style="padding:6px 10px;border:1px solid #e8e8e4;font-weight:600">이름</td>' +
+      '<td style="padding:6px 10px;border:1px solid #e8e8e4;font-weight:600">전화번호</td></tr>' +
+      rh+'</table></div></div>';
+    el('ubtn').style.display='block'; el('uerr').textContent='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+async function uploadStudents() {
+  if (!pendingStudents.length) return;
+  var btn=el('ubtn'); btn.disabled=true; btn.textContent='등록 중...';
+  var success=0,skip=0,fail=0;
+  for (var i=0;i<pendingStudents.length;i++) {
+    var res=await sb.from('users').insert({name:pendingStudents[i].name,phone:pendingStudents[i].phone});
+    if (!res.error) success++; else if (res.error.code==='23505') skip++; else fail++;
+  }
+  toast('✅ '+success+'명 등록! 중복 '+skip+'명 제외'+(fail>0?', 오류 '+fail+'명':''));
+  pageAdmin('all');
+}
+function dlSampleExcel() {
+  var ws=XLSX.utils.aoa_to_sheet([['이름','전화번호'],['홍길동','010-1234-5678'],['김철수','010-9876-5432']]);
+  ws['!cols']=[{wch:12},{wch:16}];
+  var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'수강생목록');
+  XLSX.writeFile(wb,'수강생등록_양식.xlsx');
+}
+
+
+/* ━━ 사진 뷰어 ━━ */
+
+/* ━━ 사진 자동 로드 (관리자) ━━ */
+async function autoLoadPhotos(list, idx) {
+  if (idx >= list.length) return;
+  var a = list[idx];
+  var placeholder = document.getElementById('photo_' + a.id);
+  if (!placeholder) { autoLoadPhotos(list, idx+1); return; }
+
+  var res = await sb.from('activities').select('photo1,photo2').eq('id', a.id).single();
+  if (!res.error && res.data) {
+    var ps = [];
+    if (res.data.photo1) ps.push(res.data.photo1);
+    if (res.data.photo2) ps.push(res.data.photo2);
+    if (ps.length > 0) {
+      var div = document.createElement('div');
+      div.className = 'aphotos';
+      div.style.marginBottom = '10px';
+      for (var i = 0; i < ps.length; i++) {
+        var wrap = document.createElement('div');
+        wrap.className = 'aphoto';
+        wrap.innerHTML = '<img src="' + ps[i] + '"/>' +
+          '<div class="aoverlay"><div class="ad">📅 ' + a.activity_date + '</div>' +
+          '<div class="an">사진 ' + (i+1) + '</div></div>';
+        div.appendChild(wrap);
+      }
+      placeholder.parentNode.replaceChild(div, placeholder);
+    } else {
+      placeholder.innerHTML = '';
+    }
+  } else {
+    placeholder.innerHTML = '';
+  }
+  // 다음 사진 로드
+  autoLoadPhotos(list, idx+1);
+}
+
+/* ━━ 다운로드 ━━ */
+async function dlExcel() {
+  loading('엑셀 생성 중...');
+  var res=await sb.from('activities').select('*').order('activity_date');
+  var acts=res.data||[];
+  if (!acts.length) { toast('내보낼 데이터가 없습니다.'); pageAdmin('all'); return; }
+  XLSX.writeFile(makeWB(acts,false),'학습인증_'+todayStr()+'.xlsx');
+  pageAdmin('all');
+}
+async function dlZip() {
+  loading('ZIP 생성 중 (승인된 활동만)...');
+  var res=await sb.from('activities').select('*').eq('status','approved').order('activity_date');
+  var acts=res.data||[];
+  if (!acts.length) { toast('승인된 인증 기록이 없습니다.'); pageAdmin('all'); return; }
+  var zip=new JSZip();
+  zip.file('학습인증_승인_'+todayStr()+'.xlsx', XLSX.write(makeWB(acts,true),{bookType:'xlsx',type:'array'}));
+  for (var i=0;i<acts.length;i++) {
+    var a=acts[i];
+    var folder='사진/'+a.user_name+'_'+a.user_phone+'/'+a.activity_date+'_'+a.seq+'번째';
+    var ps=[a.photo1,a.photo2];
+    for (var m=0;m<ps.length;m++) {
+      if (!ps[m]) continue;
+      var b64=ps[m].split(',')[1];
+      var ext=(ps[m].split(';')[0].split('/')[1]||'jpg').replace('jpeg','jpg');
+      zip.file(folder+'/사진'+(m+1)+'.'+ext,b64,{base64:true});
+    }
+  }
+  var blob=await zip.generateAsync({type:'blob'});
+  var url=URL.createObjectURL(blob);
+  var link=document.createElement('a');
+  link.href=url; link.download='학습인증_승인_'+todayStr()+'.zip';
+  document.body.appendChild(link); link.click();
+  document.body.removeChild(link); URL.revokeObjectURL(url);
+  pageAdmin('all');
+}
+function makeWB(acts, approvedOnly) {
+  var h1=['번호','이름','전화번호','활동날짜','활동순서','사진수','날짜확인','상태','반려사유','활동내용'];
+  var r1=acts.map(function(a) {
+    return [a.id,a.user_name,a.user_phone,a.activity_date,a.seq,
+      (a.photo1?1:0)+(a.photo2?1:0),a.date_confirmed?'확인됨':'미확인',
+      a.status==='pending'?'검토중':a.status==='approved'?'승인':'반려',
+      a.rejection_reason||'',a.text];
+  });
+  var ws1=XLSX.utils.aoa_to_sheet([h1].concat(r1));
+  ws1['!cols']=[{wch:6},{wch:10},{wch:14},{wch:14},{wch:10},{wch:8},{wch:10},{wch:8},{wch:20},{wch:40}];
+  var um={};
+  acts.forEach(function(a) {
+    if (!um[a.user_phone]) um[a.user_phone]={name:a.user_name,phone:a.user_phone,total:0,approved:0,rejected:0,pending:0,dateOk:0};
+    um[a.user_phone].total++; um[a.user_phone][a.status]++;
+    if (a.date_confirmed) um[a.user_phone].dateOk++;
+  });
+  var reqC = globalReqCount || 10;
+  var h2=['이름','전화번호','총 인증','승인','반려','검토중','날짜확인','달성률(%)'];
+  var r2=Object.values(um).map(function(u) {
+    return [u.name,u.phone,u.total,u.approved,u.rejected,u.pending,u.dateOk,Math.round((u.approved/reqC)*100)];
+  });
+  var ws2=XLSX.utils.aoa_to_sheet([h2].concat(r2));
+  ws2['!cols']=[{wch:10},{wch:14},{wch:8},{wch:8},{wch:8},{wch:8},{wch:8},{wch:10}];
+  var ap=acts.filter(function(a){return a.status==='approved';}).length;
+  var ws3=XLSX.utils.aoa_to_sheet([['항목','값'],
+    ['내보내기 일시',new Date().toLocaleString('ko-KR')],
+    ['포함 범위', approvedOnly?'승인된 활동만':'전체'],
+    ['전체 인증 수',acts.length+'회'],['승인 완료',ap+'회'],
+    ['검토 중',acts.filter(function(a){return a.status==='pending';}).length+'회'],
+    ['반려',acts.filter(function(a){return a.status==='rejected';}).length+'회'],
+    ['전체 달성률',Math.round((ap/(acts.length||1))*100)+'%']]);
+  ws3['!cols']=[{wch:16},{wch:30}];
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws1,'인증목록');
+  XLSX.utils.book_append_sheet(wb,ws2,'학습자요약');
+  XLSX.utils.book_append_sheet(wb,ws3,'기간현황');
+  return wb;
+}
+</script>
+</body>
+</html>
